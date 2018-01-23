@@ -4,7 +4,14 @@ import * as fs from 'fs';
 import * as jimp from 'jimp';
 import * as qrcode from 'qrcode-terminal';
 
-const closeBrowserAndQuit = browser => {
+const SEL_QR = 'img';
+const SEL_CHATLIST = ".chatlist-panel-body";
+const SEL_PEOPLE = '.chat-title > span';
+
+const URL = 'https://web.whatsapp.com';
+const USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.78 Safari/537.36";
+
+const closeAndQuit = browser => {
     let closing = false;
     return async () => {
         console.log("Shutting down...");
@@ -14,6 +21,18 @@ const closeBrowserAndQuit = browser => {
         }
         process.exit();
     }
+};
+
+const printQRcode = async (page) => {
+    const qrFile = "qr.png";
+    await (await page.$(SEL_QR)).screenshot({path: qrFile});
+    const qrDecoder = new (require('qrcode-reader'))();
+    qrDecoder.callback = function(error, result) {
+        if(error) throw error;
+        qrcode.generate(result.result);
+    }
+    qrDecoder.decode((await jimp.read(fs.readFileSync(qrFile))).bitmap);
+    fs.unlink(qrFile, err => console.error(err || ""));
 };
 
 (() => {
@@ -27,38 +46,32 @@ const closeBrowserAndQuit = browser => {
 
 (async () => {
     const browser = await puppeteer.launch();
-    process.on("SIGINT", closeBrowserAndQuit(browser));
+    process.on("SIGINT", closeAndQuit(browser));
     
     try {
         const page = await browser.newPage();
         
-        page.setUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.78 Safari/537.36");
+        page.setUserAgent(USER_AGENT);
         
         console.log("Loading...");
-        await page.goto('https://web.whatsapp.com');
+        await page.goto(URL);
         
-        const qrFile = "qr.png";
-        await (await page.$('img')).screenshot({path: qrFile});
-        const image = await jimp.read(fs.readFileSync(qrFile));
-        const qrDecoder = new (require('qrcode-reader'))();
-        qrDecoder.callback = function(error, result) {
-            if(error) throw error;
-            qrcode.generate(result.result);
-        }
-        qrDecoder.decode(image.bitmap)
+        printQRcode(page);
         console.log("Scan QR code with WhatsApp on your phone tp log in");
-        fs.unlink(qrFile, err => console.error(err||""));
-        
-        await page.waitFor(".chatlist-panel-body", {timeout:60000});
+    
+        await page.waitFor(SEL_CHATLIST, {timeout:60000});
         console.log("Log in success!");
         
-        const people = await page.$$('.chat-title > span');
+        const people = await page.$$(SEL_PEOPLE);
         
-        for(let i = 0; i < people.length; i++)
-            console.log(`${i + 1} - ${await (await people[i].getProperty('textContent')).jsonValue()}`);
+        const printPeople = () => people.forEach(async (person,i)=>{
+            console.log(`${i + 1} - ${await (await person.getProperty('textContent')).jsonValue()}`);
+        });
         
+        printPeople();
+
     } catch(e) {
         console.error(e);
-        closeBrowserAndQuit(browser)();
+        closeAndQuit(browser)();
     }
 })();
