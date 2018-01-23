@@ -1,7 +1,7 @@
 # Whatsapp-cli
-Use whatsapp from command line
+Use whatsapp from command line  
 
-Usage requires a PNG viewer to be installed on the system (to view the QR code).
+This application runs a headless chrome in order to simulate [WhatsApp Web](https://web.whatsapp.com)
 
 ## Installing
 ```bash
