@@ -1,0 +1,29 @@
+{
+  "name": "whatsapp-cli",
+  "version": "1.0.0",
+  "description": "Use whatsapp from command line",
+  "main": "index.ts",
+  "scripts": {
+    "start": "ts-node index.ts",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nohorjo/Whatsapp-cli.git"
+  },
+  "author": "Muhammed Haque",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/nohorjo/Whatsapp-cli/issues"
+  },
+  "homepage": "https://github.com/nohorjo/Whatsapp-cli#readme",
+  "dependencies": {
+    "opn": "^5.2.0",
+    "puppeteer": "^1.0.0",
+    "ts-node": "^4.1.0",
+    "typescript": "^2.6.2"
+  },
+  "devDependencies": {
+    "@types/puppeteer": "^0.13.9"
+  }
+}
