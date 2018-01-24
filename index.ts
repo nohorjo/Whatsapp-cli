@@ -11,10 +11,16 @@ const SEL_PEOPLE = '.chat-title > span';
 const URL = 'https://web.whatsapp.com';
 const USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.78 Safari/537.36";
 
-const closeAndQuit = browser => {
+const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout
+});
+
+const cleanUpAndQuit = browser => {
     let closing = false;
     return async () => {
         console.log("Shutting down...");
+        rl.close()
         if(!closing){
             closing = true;
             try{ await browser.close(); } catch(e) {}                
@@ -37,16 +43,15 @@ const printQRcode = async (page) => {
 
 (() => {
     if (process.platform === "win32") {
-        readline.createInterface({
-            input: process.stdin,
-            output: process.stdout
-        }).on("SIGINT", () => process.emit("SIGINT"));
+        rl.on("SIGINT", () => {
+            process.emit("SIGINT");
+        });
     }
 })();
 
 (async () => {
     const browser = await puppeteer.launch();
-    process.on("SIGINT", closeAndQuit(browser));
+    process.on("SIGINT", cleanUpAndQuit(browser));
     
     try {
         const page = await browser.newPage();
@@ -72,6 +77,6 @@ const printQRcode = async (page) => {
 
     } catch(e) {
         console.error(e);
-        closeAndQuit(browser)();
+        cleanUpAndQuit(browser)();
     }
 })();
