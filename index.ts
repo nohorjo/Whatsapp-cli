@@ -50,7 +50,7 @@ const printQRcode = async (page) => {
 })();
 
 (async () => {
-    const browser = await puppeteer.launch();
+    const browser = await puppeteer.launch({headless:process.argv[2]!='s'});
     process.on("SIGINT", cleanUpAndQuit(browser));
     
     try {
