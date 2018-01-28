@@ -3,10 +3,14 @@ import * as readline from 'readline';
 import * as fs from 'fs';
 import * as jimp from 'jimp';
 import * as qrcode from 'qrcode-terminal';
+import * as colors from 'colors';
 
 const SEL_QR = 'img';
 const SEL_CHATLIST = ".chatlist-panel-body";
 const SEL_PEOPLE = '.chat-title > span';
+const SEL_MSG = 'div.msg';
+const SEL_IN_MESSAGE = 'div.message-in span.emojitext';
+const SEL_OUT_MESSAGE = 'div.message-out span.emojitext';
 
 const URL = 'https://web.whatsapp.com';
 const USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.78 Safari/537.36";
@@ -21,20 +25,21 @@ const cleanUpAndQuit = browser => {
     return async () => {
         console.log("Shutting down...");
         rl.close()
-        if(!closing){
+        if (!closing) {
             closing = true;
-            try{ await browser.close(); } catch(e) {}                
+            try { await browser.close(); } catch (e) { }
         }
         process.exit();
     }
 };
 
-const printQRcode = async (page) => {
+const printQRcode = async page => {
     const qrFile = "qr.png";
-    await (await page.$(SEL_QR)).screenshot({path: qrFile});
+    await page.waitFor(SEL_QR, { timeout: 60000 });
+    await (await page.$(SEL_QR)).screenshot({ path: qrFile });
     const qrDecoder = new (require('qrcode-reader'))();
-    qrDecoder.callback = function(error, result) {
-        if(error) throw error;
+    qrDecoder.callback = function (error, result) {
+        if (error) throw error;
         qrcode.generate(result.result);
     }
     qrDecoder.decode((await jimp.read(fs.readFileSync(qrFile))).bitmap);
@@ -50,32 +55,46 @@ const printQRcode = async (page) => {
 })();
 
 (async () => {
-    const browser = await puppeteer.launch({headless:process.argv[2]!='s'});
+    const browser = await puppeteer.launch({ headless: process.argv[2] != 's' });
     process.on("SIGINT", cleanUpAndQuit(browser));
-    
+
     try {
         const page = await browser.newPage();
-        
+
         page.setUserAgent(USER_AGENT);
-        
+
         console.log("Loading...");
         await page.goto(URL);
-        
-        printQRcode(page);
-        console.log("Scan QR code with WhatsApp on your phone tp log in");
-    
-        await page.waitFor(SEL_CHATLIST, {timeout:60000});
+
+        await printQRcode(page);
+        console.log("Scan QR code with WhatsApp on your phone to log in");
+
+        await page.waitFor(SEL_CHATLIST, { timeout: 60000 });
         console.log("Log in success!");
-        
+
         const people = await page.$$(SEL_PEOPLE);
-        
-        const printPeople = () => people.forEach(async (person,i)=>{
+
+        const text = async elem => await (await elem.getProperty('textContent')).jsonValue();
+
+        const printPeople = () => people.forEach(async (person, i) => {
             console.log(`${i + 1} - ${await (await person.getProperty('textContent')).jsonValue()}`);
         });
-        
-        printPeople();
 
-    } catch(e) {
+        await printPeople();
+        rl.question("Who would you like to chat to?\n", async (answer) => {
+            people[parseInt(answer) - 1].click();
+            await page.waitFor(SEL_MSG, { timeout: 60000 });
+            const msgs = (await page.$$(SEL_MSG)).slice(-10);
+            msgs.forEach(async msg => {
+                const inMsg = await msg.$(SEL_IN_MESSAGE);
+                const outMsg = await msg.$(SEL_OUT_MESSAGE);
+                const msgText = await (await (inMsg || outMsg).getProperty('textContent')).jsonValue();
+                console.log(colors[outMsg ? "red" : "green"](msgText));
+            });
+
+        });
+
+    } catch (e) {
         console.error(e);
         cleanUpAndQuit(browser)();
     }
