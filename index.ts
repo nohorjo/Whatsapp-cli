@@ -4,7 +4,7 @@ import * as fs from 'fs';
 import * as jimp from 'jimp';
 import * as qrcode from 'qrcode-terminal';
 import * as colors from 'colors';
-import { setInterval } from 'timers';
+import { setInterval, clearTimeout } from 'timers';
 
 const SEL_QR = 'img';
 const SEL_CHATLIST = ".chatlist-panel-body";
@@ -15,8 +15,12 @@ const SEL_OUT_MESSAGE = 'div.message-out span.emojitext';
 const SEL_MSG_INPUT = 'div.pluggable-input-body';
 const SEL_BUTTON_SEND = 'button.compose-btn-send';
 
+const LAST_N_MESSAGES = 10;
+
 const URL = 'https://web.whatsapp.com';
 const USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.78 Safari/537.36";
+
+let messageScanner;
 
 const rl = readline.createInterface({
     input: process.stdin,
@@ -30,6 +34,7 @@ const cleanUpAndQuit = browser => {
         rl.close()
         if (!closing) {
             closing = true;
+            if (messageScanner) clearTimeout(messageScanner);
             try { await browser.close(); } catch (e) { }
         }
         process.exit();
@@ -58,7 +63,10 @@ const printQRcode = async page => {
 })();
 
 (async () => {
-    const browser = await puppeteer.launch({ headless: process.argv[2] != 's' });
+    const browser = await puppeteer.launch({
+        headless: process.argv[2] != 's',
+        args: ['--no-sandbox', '--disable-setuid-sandbox']
+    });
     process.on("SIGINT", cleanUpAndQuit(browser));
 
     try {
@@ -77,9 +85,6 @@ const printQRcode = async page => {
 
         const people = await page.$$(SEL_PEOPLE);
 
-        const text = async elem => await (await elem.getProperty('textContent')).jsonValue();
-
-        let messageScanner;
 
         const printPeople = async () => {
             for (let i = 0; i < people.length; i++) {
@@ -90,39 +95,52 @@ const printQRcode = async page => {
         await printPeople();
 
         rl.question("Who would you like to chat to?\n> ", async (answer) => {
+            let lastMessage;
             const printMessage = async msg => {
                 const inMsg = await msg.$(SEL_IN_MESSAGE);
                 const outMsg = await msg.$(SEL_OUT_MESSAGE);
                 const theMessage = (inMsg || outMsg);
                 if (theMessage) {
                     const msgText = await (await theMessage.getProperty('textContent')).jsonValue();
-                    console.log(colors[outMsg ? "white" : "green"](msgText));
+                    if (outMsg) {
+                        console.log(msgText);
+                    } else {
+                        lastMessage = msgText;
+                        console.log(colors.green(msgText));
+                    }
                 }
 
             };
             people[parseInt(answer) - 1].click();
-            await page.waitForSelector(SEL_MSG, { timeout: 60000 });
-            const msgs = (await page.$$(SEL_MSG)).slice(-10);
-            msgs.forEach(printMessage);
-            messageScanner = (() => {
-                let lastMessage;
-                return setInterval(async () => {
-                    const msg = await (await (await page.$$(SEL_IN_MESSAGE)).slice(-1)[0].getProperty('textContent')).jsonValue();
-                    if (lastMessage && lastMessage != msg) {
-                        printMessage((await page.$$(SEL_MSG)).slice(-1)[0]);
+            await page.waitFor(SEL_MSG, { timeout: 60000 });
+            const msgs = (await page.$$(SEL_MSG)).slice(-LAST_N_MESSAGES);
+            // msgs.forEach(await printMessage);
+            for (const msg of msgs) {
+                await printMessage(msg);
+            }
+            messageScanner = setInterval(async () => {
+                const msg = (await page.$$(SEL_IN_MESSAGE)).slice(-1)[0];
+                if (msg) {
+                    const msgContent = await (await msg.getProperty('textContent')).jsonValue();
+                    if (lastMessage && lastMessage != msgContent) {
+                        console.log(colors.green(msgContent));
                     }
-                    lastMessage = msg;
-                }, 200);
-            })();
+                    lastMessage = msgContent;
+                }
+            }, 200);
             const readInput = () => rl.question("> ", async line => {
-                await (await page.$(SEL_MSG_INPUT)).type(line);
-                (await page.$(SEL_BUTTON_SEND)).click();
+                if (line) {
+                    await (await page.$(SEL_MSG_INPUT)).type(line);
+                    await page.waitFor(SEL_BUTTON_SEND, { timeout: 60000 });
+                    (await page.$(SEL_BUTTON_SEND)).click();
+                }
                 readInput();
             });
             readInput();
         });
     } catch (e) {
-        console.trace(e);
+        console.error(JSON.stringify(e));
+        console.trace();
         cleanUpAndQuit(browser)();
     }
 })();
