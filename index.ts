@@ -83,8 +83,8 @@ const printQRcode = async page => {
         await page.waitFor(SEL_CHATLIST, { timeout: 60000 });
         console.log("Log in success!");
 
-        const people = await page.$$(SEL_PEOPLE);
 
+        const people = await page.$$(SEL_PEOPLE);
 
         const printPeople = async () => {
             for (let i = 0; i < people.length; i++) {
@@ -106,7 +106,7 @@ const printQRcode = async page => {
                         console.log(msgText);
                     } else {
                         lastMessage = msgText;
-                        console.log(colors.green(msgText));
+                        console.log(colors.bold(`> ${msgText}`));
                     }
                 }
 
@@ -123,7 +123,7 @@ const printQRcode = async page => {
                 if (msg) {
                     const msgContent = await (await msg.getProperty('textContent')).jsonValue();
                     if (lastMessage && lastMessage != msgContent) {
-                        console.log(colors.green(msgContent));
+                        process.stdout.write(colors.bold(`\n> ${msgContent}\n> `));
                     }
                     lastMessage = msgContent;
                 }
