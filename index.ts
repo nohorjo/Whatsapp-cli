@@ -4,6 +4,7 @@ import * as fs from 'fs';
 import * as jimp from 'jimp';
 import * as qrcode from 'qrcode-terminal';
 import * as colors from 'colors';
+import { setInterval } from 'timers';
 
 const SEL_QR = 'img';
 const SEL_CHATLIST = ".chatlist-panel-body";
@@ -11,6 +12,9 @@ const SEL_PEOPLE = '.chat-title > span';
 const SEL_MSG = 'div.msg';
 const SEL_IN_MESSAGE = 'div.message-in span.emojitext';
 const SEL_OUT_MESSAGE = 'div.message-out span.emojitext';
+const SEL_TIME = 'div.message-in>div>div>div:nth-child(2)>div>span';
+const SEL_MSG_INPUT = 'div.pluggable-input-body';
+const SEL_BUTTON_SEND = 'button.compose-btn-send';
 
 const URL = 'https://web.whatsapp.com';
 const USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.78 Safari/537.36";
@@ -80,18 +84,35 @@ const printQRcode = async page => {
             console.log(`${i + 1} - ${await (await person.getProperty('textContent')).jsonValue()}`);
         });
 
+        let messageScanner;
+
         await printPeople();
-        rl.question("Who would you like to chat to?\n", async (answer) => {
-            people[parseInt(answer) - 1].click();
-            await page.waitFor(SEL_MSG, { timeout: 60000 });
-            const msgs = (await page.$$(SEL_MSG)).slice(-10);
-            msgs.forEach(async msg => {
+        rl.question("Who would you like to chat to?\n> ", async (answer) => {
+            const printMessage = async msg => {
                 const inMsg = await msg.$(SEL_IN_MESSAGE);
                 const outMsg = await msg.$(SEL_OUT_MESSAGE);
                 const msgText = await (await (inMsg || outMsg).getProperty('textContent')).jsonValue();
-                console.log(colors[outMsg ? "red" : "green"](msgText));
-            });
+                console.log(colors[outMsg ? "white" : "green"](msgText));
 
+            };
+            people[parseInt(answer) - 1].click();
+            await page.waitForSelector(SEL_MSG, { timeout: 60000 });
+            const msgs = (await page.$$(SEL_MSG)).slice(-10);
+            msgs.forEach(printMessage);
+            messageScanner = (() => {
+                let lastTime;
+                return setInterval(async () => {
+                    const time = await (await (await page.$$(SEL_TIME)).slice(-1)[0].getProperty('textContent')).jsonValue();
+                    if (time != lastTime) {
+                        lastTime = time;
+                        printMessage((await page.$$(SEL_MSG)).slice(-1)[0]);
+                    }
+                }, 200);
+            })();
+            rl.on("line", async line => {
+                await (await page.$(SEL_MSG_INPUT)).type(line);
+                (await page.$(SEL_BUTTON_SEND)).click();
+            });
         });
 
     } catch (e) {
