@@ -106,7 +106,7 @@ const printQRcode = async page => {
                         console.log(msgText);
                     } else {
                         lastMessage = msgText;
-                        console.log(colors.bold(`> ${msgText}`));
+                        console.log(colors.red(`> ${msgText}`));
                     }
                 }
 
@@ -123,7 +123,7 @@ const printQRcode = async page => {
                 if (msg) {
                     const msgContent = await (await msg.getProperty('textContent')).jsonValue();
                     if (lastMessage && lastMessage != msgContent) {
-                        process.stdout.write(colors.bold(`\n> ${msgContent}\n> `));
+                        process.stdout.write(colors.red(`\n> ${msgContent}\n> `));
                     }
                     lastMessage = msgContent;
                 }
