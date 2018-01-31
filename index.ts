@@ -5,6 +5,7 @@ import * as jimp from 'jimp';
 import * as qrcode from 'qrcode-terminal';
 import * as colors from 'colors';
 import { setInterval, clearTimeout } from 'timers';
+import * as cursor from 'term-cursor';
 
 const SEL_QR = 'img';
 const SEL_CHATLIST = ".chatlist-panel-body";
@@ -22,16 +23,29 @@ const USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36
 
 let messageScanner;
 
-const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout
-});
+let clip = "";
+
+const stdout = process.stdout;
+const stdin = process.stdin;
+stdin.setRawMode(true);
+stdin.resume();
+stdin.setEncoding('utf8');
+
+console.log = text => {
+    text = (text || "").toString();
+    readline.clearLine(stdout, 0);
+    stdout.write("\n");
+    cursor.up(1);
+    stdout.write(text);
+    readline.cursorTo(stdout, 0);
+    cursor.down(1);
+    stdout.write(clip);
+};
 
 const cleanUpAndQuit = browser => {
     let closing = false;
     return async () => {
-        console.log("Shutting down...");
-        rl.close()
+        console.log("\nShutting down...\n\n");
         if (!closing) {
             closing = true;
             if (messageScanner) clearTimeout(messageScanner);
@@ -42,25 +56,25 @@ const cleanUpAndQuit = browser => {
 };
 
 const printQRcode = async page => {
-    const qrFile = "qr.png";
-    await page.waitFor(SEL_QR, { timeout: 60000 });
-    await (await page.$(SEL_QR)).screenshot({ path: qrFile });
-    const qrDecoder = new (require('qrcode-reader'))();
-    qrDecoder.callback = function (error, result) {
-        if (error) throw error;
-        qrcode.generate(result.result);
+    try {
+        const qrFile = "qr.png";
+        await page.waitFor(SEL_QR, { timeout: 60000 });
+        await (await page.$(SEL_QR)).screenshot({ path: qrFile });
+        const qrDecoder = new (require('qrcode-reader'))();
+        qrDecoder.callback = function (error, result) {
+            if (error) throw error;
+            stdout.write('\n\n');
+            qrcode.generate(result.result);
+            stdout.write('\n\n');
+        }
+        qrDecoder.decode((await jimp.read(fs.readFileSync(qrFile))).bitmap);
+        fs.unlink(qrFile, err => console.error(err || ""));
+    } catch (e) {
+        console.error("Error. Retrying...");
+        await page.goto(URL);
+        printQRcode(page);
     }
-    qrDecoder.decode((await jimp.read(fs.readFileSync(qrFile))).bitmap);
-    fs.unlink(qrFile, err => console.error(err || ""));
 };
-
-(() => {
-    if (process.platform === "win32") {
-        rl.on("SIGINT", () => {
-            process.emit("SIGINT");
-        });
-    }
-})();
 
 (async () => {
     const browser = await puppeteer.launch({
@@ -68,6 +82,42 @@ const printQRcode = async page => {
         args: ['--no-sandbox', '--disable-setuid-sandbox']
     });
     process.on("SIGINT", cleanUpAndQuit(browser));
+
+    const readAnswer = (() => {
+        let processor = null;
+        return x => {
+            if (typeof x == 'function') {
+                stdout.write('> ');
+                processor = x;
+            } else if (typeof processor == 'function') {
+                let rtn = processor(x);
+                if (typeof rtn == 'function') {
+                    processor = rtn;
+                }
+            }
+        }
+    })();
+
+    stdin.on('data', function (key) {
+        // ctrl-c ( end of text )
+        if (key === '\u0003') {
+            cleanUpAndQuit(browser)();
+        }
+        if (key.charCodeAt(0) != 127) {
+            stdout.write(key == "\r" ? "\n" : key);
+            if (key == "\r") {
+                readAnswer(clip);
+                stdout.write('> ');
+                clip = "";
+            } else {
+                clip += key
+            }
+        } else {
+            readline.clearLine(stdout, 0);
+            readline.cursorTo(stdout, 0);
+            stdout.write(`> ${clip = clip.split("").reverse().slice(1).reverse().join("")}`);
+        }
+    });
 
     try {
         const page = await browser.newPage();
@@ -94,7 +144,8 @@ const printQRcode = async page => {
 
         await printPeople();
 
-        rl.question("Who would you like to chat to?\n> ", async (answer) => {
+        console.log("Who would you like to chat to?");
+        readAnswer(async (answer) => {
             let lastMessage;
             const printMessage = async msg => {
                 const inMsg = await msg.$(SEL_IN_MESSAGE);
@@ -103,10 +154,9 @@ const printQRcode = async page => {
                 if (theMessage) {
                     const msgText = await (await theMessage.getProperty('textContent')).jsonValue();
                     if (outMsg) {
-                        console.log(msgText);
+                        console.log(`> ${msgText}`);
                     } else {
-                        lastMessage = msgText;
-                        console.log(colors.red(`> ${msgText}`));
+                        console.log(colors.red(`> ${lastMessage = msgText}`));
                     }
                 }
 
@@ -114,7 +164,6 @@ const printQRcode = async page => {
             people[parseInt(answer) - 1].click();
             await page.waitFor(SEL_MSG, { timeout: 60000 });
             const msgs = (await page.$$(SEL_MSG)).slice(-LAST_N_MESSAGES);
-            // msgs.forEach(await printMessage);
             for (const msg of msgs) {
                 await printMessage(msg);
             }
@@ -123,19 +172,20 @@ const printQRcode = async page => {
                 if (msg) {
                     const msgContent = await (await msg.getProperty('textContent')).jsonValue();
                     if (lastMessage && lastMessage != msgContent) {
-                        process.stdout.write(colors.red(`\n> ${msgContent}\n> `));
+                        console.log(colors.red(`> ${msgContent}`));
                     }
                     lastMessage = msgContent;
                 }
             }, 200);
-            const readInput = () => rl.question("> ", async line => {
-                if (line) {
+            const readInput = () => readAnswer(async (line: string) => {
+                if (line.trim()) {
                     await (await page.$(SEL_MSG_INPUT)).type(line);
                     await page.waitFor(SEL_BUTTON_SEND, { timeout: 60000 });
                     (await page.$(SEL_BUTTON_SEND)).click();
                 }
                 readInput();
             });
+
             readInput();
         });
     } catch (e) {
