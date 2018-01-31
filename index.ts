@@ -35,14 +35,21 @@ stdin.setRawMode(true);
 stdin.resume();
 stdin.setEncoding('utf8');
 
-console.log = text => {
+console.log = (text, split) => {
     text = (text || "").toString();
-    readline.clearLine(stdout, 0);
-    stdout.write("\n");
-    cursor.up(1);
-    stdout.write(text);
-    readline.cursorTo(stdout, 0);
-    cursor.down(1);
+    const doLog = t => {
+        readline.clearLine(stdout, 0);
+        stdout.write("\n");
+        cursor.up(1);
+        stdout.write(t);
+        readline.cursorTo(stdout, 0);
+        cursor.down(1);
+    };
+    if (split) {
+        text.match(new RegExp(`.{1,${stdout.columns - 2}}`, "g")).forEach(doLog);
+    } else {
+        doLog(text);
+    }
     stdout.write(clip);
 };
 (() => {
@@ -64,24 +71,26 @@ const cleanUpAndQuit = browser => {
 };
 
 const printQRcode = async page => {
-    try {
-        const qrFile = "qr.png";
-        await page.waitFor(SEL_QR, { timeout: 60000 });
-        await (await page.$(SEL_QR)).screenshot({ path: qrFile });
-        const qrDecoder = new (require('qrcode-reader'))();
-        qrDecoder.callback = function (error, result) {
-            if (error) throw error;
-            stdout.write('\n\n');
-            qrcode.generate(result.result);
-            stdout.write('\n\n');
+    const qrFile = "qr.png";
+    const qrDecoder = new (require('qrcode-reader'))();
+    while (true) {
+        try {
+            await page.waitFor(SEL_QR, { timeout: 60000 });
+            await (await page.$(SEL_QR)).screenshot({ path: qrFile });
+            qrDecoder.callback = function (error, result) {
+                if (error) throw error;
+                stdout.write('\n\n');
+                qrcode.generate(result.result);
+                stdout.write('\n\n');
+            }
+            qrDecoder.decode((await jimp.read(fs.readFileSync(qrFile))).bitmap);
+            break;
+        } catch (e) {
+            console.error(`Error: ${JSON.stringify(e)}\nRetrying..."`);
+            await page.reload();
         }
-        qrDecoder.decode((await jimp.read(fs.readFileSync(qrFile))).bitmap);
-        fs.unlink(qrFile, err => console.error(err || ""));
-    } catch (e) {
-        console.error("Error. Retrying...");
-        await page.goto(URL);
-        await printQRcode(page);
     }
+    fs.unlink(qrFile, err => console.error(err || ""));
 };
 
 (async () => {
@@ -98,7 +107,7 @@ const printQRcode = async page => {
                 stdout.write('> ');
                 processor = x;
             } else if (typeof processor == 'function') {
-                let rtn = processor(x);
+                const rtn = processor(x);
                 if (typeof rtn == 'function') {
                     processor = rtn;
                 }
@@ -107,7 +116,7 @@ const printQRcode = async page => {
     })();
 
     stdin.on('data', function (key) {
-        let keyCode = key.charCodeAt(0);
+        const keyCode = key.charCodeAt(0);
         // ctrl-c ( end of text )
         if (key === '\u0003') {
             cleanUpAndQuit(browser)();
@@ -121,7 +130,12 @@ const printQRcode = async page => {
                 clip += key
             }
         } else if (keyCode == 8) {
-            readline.clearLine(stdout, 0);
+            const linesToDel = Math.ceil(clip.length / (stdout.columns - 2));
+            for (let i = 0; i < linesToDel; i++) {
+                readline.clearLine(stdout, 0);
+                cursor.up(1);
+            }
+            cursor.down(1);
             readline.cursorTo(stdout, 0);
             stdout.write(`> ${clip = clip.split("").reverse().slice(1).reverse().join("")}`);
         } else if (keyCode == 37) {
@@ -166,9 +180,9 @@ const printQRcode = async page => {
                 if (theMessage) {
                     const msgText = await (await theMessage.getProperty('textContent')).jsonValue();
                     if (outMsg) {
-                        console.log(`> ${msgText}`);
+                        console.log(`> ${msgText}`, true);
                     } else {
-                        console.log(colors[OUT_MSG_COLOUR](`> ${lastMessage = msgText}`));
+                        console.log(colors[OUT_MSG_COLOUR](`> ${lastMessage = msgText}`), true);
                     }
                 }
 
@@ -184,7 +198,7 @@ const printQRcode = async page => {
                 if (msg) {
                     const msgContent = await (await msg.getProperty('textContent')).jsonValue();
                     if (lastMessage && lastMessage != msgContent) {
-                        console.log(colors[OUT_MSG_COLOUR](`> ${msgContent}`));
+                        console.log(colors[OUT_MSG_COLOUR](`> ${msgContent}`), true);
                         stdout.write("> ");
                     }
                     lastMessage = msgContent;
