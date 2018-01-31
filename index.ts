@@ -115,7 +115,6 @@ const printQRcode = async page => {
             stdout.write(key == "\r" ? "\n" : key);
             if (key == "\r") {
                 readAnswer(clip);
-                stdout.write('> ');
                 clip = "";
             } else {
                 clip += key

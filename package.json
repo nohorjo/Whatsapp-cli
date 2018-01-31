@@ -1,6 +1,6 @@
 {
   "name": "whatsapp-cli",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "description": "Use whatsapp from command line",
   "main": "index.ts",
   "scripts": {
@@ -27,7 +27,6 @@
     "qrcode-reader": "^1.0.4",
     "qrcode-terminal": "^0.11.0",
     "term-cursor": "^1.0.2",
-    "ts-node": "^4.1.0",
     "typescript": "^2.6.2"
   },
   "devDependencies": {
