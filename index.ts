@@ -21,6 +21,10 @@ const LAST_N_MESSAGES = 10;
 const URL = 'https://web.whatsapp.com';
 const USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.78 Safari/537.36";
 
+const NORMAL_COLOUR = "cyan";
+const OUT_MSG_COLOUR = "red";
+const ERROR_COLOUR = "bgRed";
+
 let messageScanner;
 
 let clip = "";
@@ -43,13 +47,13 @@ console.log = text => {
 };
 (() => {
     const err = console.error;
-    console.error = text => err(colors.bgRed(text));
+    console.error = text => err(colors[ERROR_COLOUR](text));
 })();
 
 const cleanUpAndQuit = browser => {
     let closing = false;
     return async () => {
-        console.log(colors.cyan("\nShutting down...\n\n"));
+        console.log(colors[NORMAL_COLOUR]("\nShutting down...\n\n"));
         if (!closing) {
             closing = true;
             if (messageScanner) clearTimeout(messageScanner);
@@ -128,27 +132,27 @@ const printQRcode = async page => {
 
         page.setUserAgent(USER_AGENT);
 
-        console.log(colors.cyan("Loading..."));
+        console.log(colors[NORMAL_COLOUR]("Loading..."));
         await page.goto(URL);
 
         await printQRcode(page);
-        console.log(colors.cyan("Scan QR code with WhatsApp on your phone to log in"));
+        console.log(colors[NORMAL_COLOUR]("Scan QR code with WhatsApp on your phone to log in"));
 
         await page.waitFor(SEL_CHATLIST, { timeout: 60000 });
-        console.log(colors.cyan("Log in success!"));
+        console.log(colors[NORMAL_COLOUR]("Log in success!"));
 
 
         const people = await page.$$(SEL_PEOPLE);
 
         const printPeople = async () => {
             for (let i = 0; i < people.length; i++) {
-                console.log(colors.cyan(`${i + 1} - ${await (await people[i].getProperty('textContent')).jsonValue()}`));
+                console.log(colors[NORMAL_COLOUR](`${i + 1} - ${await (await people[i].getProperty('textContent')).jsonValue()}`));
             }
         };
 
         await printPeople();
 
-        console.log(colors.cyan("Who would you like to chat to?"));
+        console.log(colors[NORMAL_COLOUR]("Who would you like to chat to?"));
         readAnswer(async (answer) => {
             let lastMessage;
             const printMessage = async msg => {
@@ -160,7 +164,7 @@ const printQRcode = async page => {
                     if (outMsg) {
                         console.log(`> ${msgText}`);
                     } else {
-                        console.log(colors.red(`> ${lastMessage = msgText}`));
+                        console.log(colors[OUT_MSG_COLOUR](`> ${lastMessage = msgText}`));
                     }
                 }
 
@@ -176,7 +180,7 @@ const printQRcode = async page => {
                 if (msg) {
                     const msgContent = await (await msg.getProperty('textContent')).jsonValue();
                     if (lastMessage && lastMessage != msgContent) {
-                        console.log(colors.red(`> ${msgContent}`));
+                        console.log(colors[OUT_MSG_COLOUR](`> ${msgContent}`));
                     }
                     lastMessage = msgContent;
                 }
