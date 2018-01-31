@@ -1,6 +1,6 @@
 {
   "name": "whatsapp-cli",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Use whatsapp from command line",
   "main": "index.ts",
   "scripts": {
