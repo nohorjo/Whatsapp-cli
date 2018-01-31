@@ -112,7 +112,7 @@ const printQRcode = async page => {
         if (key === '\u0003') {
             cleanUpAndQuit(browser)();
         }
-        if (/^[a-zA-Z0-9 `¬¦!"£\$%^\&\*\(\)_\+-=\[\]\{\};:'@#~,<\.>\/?\\|]*$/g.test(key)) {
+        if (/^[a-zA-Z0-9 `¬¦!"£\$%^\&\*\(\)_\+-=\[\]\{\};:'@#~,<\.>\/?\\|\r\n]*$/g.test(key)) {
             stdout.write(key == "\r" ? "\n" : key);
             if (key == "\r") {
                 readAnswer(clip);
