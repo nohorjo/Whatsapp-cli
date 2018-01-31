@@ -107,11 +107,12 @@ const printQRcode = async page => {
     })();
 
     stdin.on('data', function (key) {
+        let keyCode = key.charCodeAt(0);
         // ctrl-c ( end of text )
         if (key === '\u0003') {
             cleanUpAndQuit(browser)();
         }
-        if (key.charCodeAt(0) != 127) {
+        if (/^[a-zA-Z0-9 `¬¦!"£\$%^\&\*\(\)_\+-=\[\]\{\};:'@#~,<\.>\/?\\|]*$/g.test(key)) {
             stdout.write(key == "\r" ? "\n" : key);
             if (key == "\r") {
                 readAnswer(clip);
@@ -119,10 +120,14 @@ const printQRcode = async page => {
             } else {
                 clip += key
             }
-        } else {
+        } else if (keyCode == 8) {
             readline.clearLine(stdout, 0);
             readline.cursorTo(stdout, 0);
             stdout.write(`> ${clip = clip.split("").reverse().slice(1).reverse().join("")}`);
+        } else if (keyCode == 37) {
+            cursor.left(1);
+        } else if (keyCode == 39) {
+            cursor.right(1);
         }
     });
 
@@ -180,6 +185,7 @@ const printQRcode = async page => {
                     const msgContent = await (await msg.getProperty('textContent')).jsonValue();
                     if (lastMessage && lastMessage != msgContent) {
                         console.log(colors[OUT_MSG_COLOUR](`> ${msgContent}`));
+                        stdout.write("> ");
                     }
                     lastMessage = msgContent;
                 }

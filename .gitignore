@@ -60,3 +60,4 @@ typings/
 *.js
 *.js.map
 .vscode/*
+*.png
