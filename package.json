@@ -1,12 +1,13 @@
 {
   "name": "whatsapp-cli",
-  "version": "1.0.1",
+  "version": "1.1.1",
   "description": "Use whatsapp from command line",
   "main": "index.ts",
   "scripts": {
-    "start": "ts-node index.ts",
-    "window": "ts-node index.ts s",
-    "debug": "ts-node --inspect-brk=9009 index.ts",
+    "prestart": "tsc -p .",
+    "start": "node index.js",
+    "window": "node index.js s",
+    "debug": "node --inspect-brk=9009 index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
