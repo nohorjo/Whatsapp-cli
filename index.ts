@@ -41,11 +41,15 @@ console.log = text => {
     cursor.down(1);
     stdout.write(clip);
 };
+(() => {
+    const err = console.error;
+    console.error = text => err(colors.bgRed(text));
+})();
 
 const cleanUpAndQuit = browser => {
     let closing = false;
     return async () => {
-        console.log("\nShutting down...\n\n");
+        console.log(colors.cyan("\nShutting down...\n\n"));
         if (!closing) {
             closing = true;
             if (messageScanner) clearTimeout(messageScanner);
@@ -72,7 +76,7 @@ const printQRcode = async page => {
     } catch (e) {
         console.error("Error. Retrying...");
         await page.goto(URL);
-        printQRcode(page);
+        await printQRcode(page);
     }
 };
 
@@ -124,27 +128,27 @@ const printQRcode = async page => {
 
         page.setUserAgent(USER_AGENT);
 
-        console.log("Loading...");
+        console.log(colors.cyan("Loading..."));
         await page.goto(URL);
 
         await printQRcode(page);
-        console.log("Scan QR code with WhatsApp on your phone to log in");
+        console.log(colors.cyan("Scan QR code with WhatsApp on your phone to log in"));
 
         await page.waitFor(SEL_CHATLIST, { timeout: 60000 });
-        console.log("Log in success!");
+        console.log(colors.cyan("Log in success!"));
 
 
         const people = await page.$$(SEL_PEOPLE);
 
         const printPeople = async () => {
             for (let i = 0; i < people.length; i++) {
-                console.log(`${i + 1} - ${await (await people[i].getProperty('textContent')).jsonValue()}`);
+                console.log(colors.cyan(`${i + 1} - ${await (await people[i].getProperty('textContent')).jsonValue()}`));
             }
         };
 
         await printPeople();
 
-        console.log("Who would you like to chat to?");
+        console.log(colors.cyan("Who would you like to chat to?"));
         readAnswer(async (answer) => {
             let lastMessage;
             const printMessage = async msg => {
