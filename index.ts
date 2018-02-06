@@ -50,7 +50,9 @@ console.log = (text, split) => {
     } else {
         doLog(text);
     }
-    stdout.write(clip);
+    if (clip) {
+        stdout.write(`> ${clip}`);
+    }
 };
 (() => {
     const err = console.error;
@@ -129,7 +131,7 @@ const printQRcode = async page => {
             } else {
                 clip += key
             }
-        } else if (keyCode == 8) {
+        } else if (keyCode == 8 && clip) {
             const linesToDel = Math.ceil(clip.length / (stdout.columns - 2));
             for (let i = 0; i < linesToDel; i++) {
                 readline.clearLine(stdout, 0);
@@ -138,10 +140,6 @@ const printQRcode = async page => {
             cursor.down(1);
             readline.cursorTo(stdout, 0);
             stdout.write(`> ${clip = clip.split("").reverse().slice(1).reverse().join("")}`);
-        } else if (keyCode == 37) {
-            cursor.left(1);
-        } else if (keyCode == 39) {
-            cursor.right(1);
         }
     });
 
@@ -158,7 +156,6 @@ const printQRcode = async page => {
 
         await page.waitFor(SEL_CHATLIST, { timeout: 60000 });
         console.log(colors[NORMAL_COLOUR]("Log in success!"));
-
 
         const people = await page.$$(SEL_PEOPLE);
 
@@ -185,7 +182,6 @@ const printQRcode = async page => {
                         console.log(colors[OUT_MSG_COLOUR](`> ${lastMessage = msgText}`), true);
                     }
                 }
-
             };
             people[parseInt(answer) - 1].click();
             await page.waitFor(SEL_MSG, { timeout: 60000 });
@@ -212,7 +208,6 @@ const printQRcode = async page => {
                 }
                 readInput();
             });
-
             readInput();
         });
     } catch (e) {
