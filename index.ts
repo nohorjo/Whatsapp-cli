@@ -132,7 +132,7 @@ const printQRcode = async page => {
                 clip += key
             }
         } else if (keyCode == 8 && clip) {
-            const linesToDel = Math.ceil(clip.length / (stdout.columns - 2));
+            const linesToDel = Math.ceil((clip.length + 2) / stdout.columns);
             for (let i = 0; i < linesToDel; i++) {
                 readline.clearLine(stdout, 0);
                 cursor.up(1);
