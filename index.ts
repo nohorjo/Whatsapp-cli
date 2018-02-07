@@ -48,10 +48,10 @@ const { log, messageIn, messageOut, error } = (() => {
         }
     };
     return {
-        log: (text) => print(colors[COLOUR_NORMAL](text), false),
-        messageIn: text => print(colors[COLOUR_IN_MSG](text), true),
-        messageOut: text => print(colors[COLOUR_OUT_MSG](text), true),
-        error: (text, ...other) => console.error(colors[COLOUR_ERROR](text), other)
+        log: (text) => print(colors.bold(colors[COLOUR_NORMAL](text)), false),
+        messageIn: text => print(colors.bold(colors[COLOUR_IN_MSG](text)), true),
+        messageOut: text => print(colors.bold(colors[COLOUR_OUT_MSG](text)), true),
+        error: (text, ...other) => console.error(colors.bold(colors[COLOUR_ERROR](text)), other)
     };
 })();
 
