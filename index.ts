@@ -7,6 +7,7 @@ import * as colors from 'colors';
 import { setInterval, clearTimeout } from 'timers';
 import * as cursor from 'term-cursor';
 
+
 const SEL_QR = 'img';
 const SEL_CHATLIST = ".chatlist-panel-body";
 const SEL_PEOPLE = '.chat-title > span';
@@ -19,15 +20,12 @@ const SEL_BUTTON_SEND = 'button.compose-btn-send';
 let clip = "";
 
 const { stdout, stdin } = process;
+stdout.write(String.fromCharCode(27) + "]0;wa-cli" + String.fromCharCode(7));
 stdin.setRawMode(true);
 stdin.resume();
 stdin.setEncoding('utf8');
 
 const { log, messageIn, messageOut, error } = (() => {
-    const COLOUR_NORMAL = "cyan";
-    const COLOUR_IN_MSG = "red";
-    const COLOUR_OUT_MSG = "white";
-    const COLOUR_ERROR = "bgRed";
     const print = (text, split?) => {
         text = (text || "").toString();
         const doLog = t => {
@@ -48,10 +46,10 @@ const { log, messageIn, messageOut, error } = (() => {
         }
     };
     return {
-        log: (text) => print(colors.bold(colors[COLOUR_NORMAL](text)), false),
-        messageIn: text => print(colors.bold(colors[COLOUR_IN_MSG](text)), true),
-        messageOut: text => print(colors.bold(colors[COLOUR_OUT_MSG](text)), true),
-        error: (text, ...other) => console.error(colors.bold(colors[COLOUR_ERROR](text)), other)
+        log: (text) => print(colors.cyan(text), false),
+        messageIn: text => print(colors.yellow(text), true),
+        messageOut: text => print(text, true),
+        error: (text, ...other) => console.error(colors.bgRed(text), other.length ? other : "")
     };
 })();
 
@@ -72,27 +70,27 @@ const cleanUpAndQuit = browser => {
 const printQRcode = async page => {
     const qrFile = "qr.png";
     const qrDecoder = new (require('qrcode-reader'))();
-    while (true) {
+    const tryPrint = async () => {
         try {
             log("Fetching QR code");
             await page.waitFor(SEL_QR, { timeout: 60000 });
-            log("Processing code");
             await (await page.$(SEL_QR)).screenshot({ path: qrFile });
-            qrDecoder.callback = (error, result) => {
-                if (error) throw error;
-                stdout.write('\n\n');
+            log("Processing code");
+            qrDecoder.callback = (err, result) => {
+                if (err) throw err;
                 log("Generating QR display");
+                stdout.write('\n\n');
                 qrcode.generate(result.result);
                 stdout.write('\n\n');
+                fs.unlink(qrFile, err => !fs.existsSync(qrFile) || error(err || "Error deleting QR file"));
             }
             qrDecoder.decode((await jimp.read(fs.readFileSync(qrFile))).bitmap);
-            break;
         } catch (e) {
-            error(`Error: ${JSON.stringify(e)}\nRetrying..."`);
-            await page.reload();
+            error(`Error: ${JSON.stringify(e)}\nRetrying...`);
+            setTimeout(tryPrint, 3000);
         }
-    }
-    fs.unlink(qrFile, err => console.error(err || ""));
+    };
+    tryPrint();
 };
 
 (async () => {
