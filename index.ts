@@ -16,53 +16,50 @@ const SEL_OUT_MESSAGE = 'div.message-out span.emojitext';
 const SEL_MSG_INPUT = 'div.pluggable-input-body';
 const SEL_BUTTON_SEND = 'button.compose-btn-send';
 
-const LAST_N_MESSAGES = 10;
-
-const URL = 'https://web.whatsapp.com';
-const USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.78 Safari/537.36";
-
-const NORMAL_COLOUR = "cyan";
-const OUT_MSG_COLOUR = "red";
-const ERROR_COLOUR = "bgRed";
-
-let messageScanner;
-
 let clip = "";
 
-const stdout = process.stdout;
-const stdin = process.stdin;
+const { stdout, stdin } = process;
 stdin.setRawMode(true);
 stdin.resume();
 stdin.setEncoding('utf8');
 
-console.log = (text, split) => {
-    text = (text || "").toString();
-    const doLog = t => {
-        readline.clearLine(stdout, 0);
-        stdout.write("\n");
-        cursor.up(1);
-        stdout.write(t);
-        readline.cursorTo(stdout, 0);
-        cursor.down(1);
+const { log, messageIn, messageOut, error } = (() => {
+    const COLOUR_NORMAL = "cyan";
+    const COLOUR_IN_MSG = "red";
+    const COLOUR_OUT_MSG = "white";
+    const COLOUR_ERROR = "bgRed";
+    const print = (text, split?) => {
+        text = (text || "").toString();
+        const doLog = t => {
+            readline.clearLine(stdout, 0);
+            stdout.write("\n");
+            cursor.up(1);
+            stdout.write(t);
+            readline.cursorTo(stdout, 0);
+            cursor.down(1);
+        };
+        if (split) {
+            text.match(new RegExp(`.{1,${stdout.columns - 2}}`, "g")).forEach(doLog);
+        } else {
+            doLog(text);
+        }
+        if (clip) {
+            stdout.write(`> ${clip}`);
+        }
     };
-    if (split) {
-        text.match(new RegExp(`.{1,${stdout.columns - 2}}`, "g")).forEach(doLog);
-    } else {
-        doLog(text);
-    }
-    if (clip) {
-        stdout.write(`> ${clip}`);
-    }
-};
-(() => {
-    const err = console.error;
-    console.error = text => err(colors[ERROR_COLOUR](text));
+    return {
+        log: (text) => print(colors[COLOUR_NORMAL](text), false),
+        messageIn: text => print(colors[COLOUR_IN_MSG](text), true),
+        messageOut: text => print(colors[COLOUR_OUT_MSG](text), true),
+        error: (text, ...other) => console.error(colors[COLOUR_ERROR](text), other)
+    };
 })();
 
+let messageScanner;
 const cleanUpAndQuit = browser => {
     let closing = false;
     return async () => {
-        console.log(colors[NORMAL_COLOUR]("\nShutting down...\n\n"));
+        log("\nShutting down...\n\n");
         if (!closing) {
             closing = true;
             if (messageScanner) clearTimeout(messageScanner);
@@ -77,18 +74,21 @@ const printQRcode = async page => {
     const qrDecoder = new (require('qrcode-reader'))();
     while (true) {
         try {
+            log("Fetching QR code");
             await page.waitFor(SEL_QR, { timeout: 60000 });
+            log("Processing code");
             await (await page.$(SEL_QR)).screenshot({ path: qrFile });
-            qrDecoder.callback = function (error, result) {
+            qrDecoder.callback = (error, result) => {
                 if (error) throw error;
                 stdout.write('\n\n');
+                log("Generating QR display");
                 qrcode.generate(result.result);
                 stdout.write('\n\n');
             }
             qrDecoder.decode((await jimp.read(fs.readFileSync(qrFile))).bitmap);
             break;
         } catch (e) {
-            console.error(`Error: ${JSON.stringify(e)}\nRetrying..."`);
+            error(`Error: ${JSON.stringify(e)}\nRetrying..."`);
             await page.reload();
         }
     }
@@ -117,13 +117,13 @@ const printQRcode = async page => {
         }
     })();
 
-    stdin.on('data', function (key) {
+    stdin.on('data', key => {
         const keyCode = key.charCodeAt(0);
         // ctrl-c ( end of text )
         if (key === '\u0003') {
             cleanUpAndQuit(browser)();
         }
-        if (/^[a-zA-Z0-9 `¬¦!"£\$%^\&\*\(\)_\+-=\[\]\{\};:'@#~,<\.>\/?\\|\r\n]*$/g.test(key)) {
+        if (/^[a-zA-Z0-9 `¬¦!"£\$%\^\&\*\(\)_\+-=\[\]\{\};:'@#~,<\.>\/?\\\|\r\n]*$/g.test(key)) {
             stdout.write(key == "\r" ? "\n" : key);
             if (key == "\r") {
                 readAnswer(clip);
@@ -146,28 +146,28 @@ const printQRcode = async page => {
     try {
         const page = await browser.newPage();
 
-        page.setUserAgent(USER_AGENT);
+        page.setUserAgent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/60.0.3112.78 Safari/537.36");
 
-        console.log(colors[NORMAL_COLOUR]("Loading..."));
-        await page.goto(URL);
+        log("Loading...");
+        await page.goto('https://web.whatsapp.com');
 
         await printQRcode(page);
-        console.log(colors[NORMAL_COLOUR]("Scan QR code with WhatsApp on your phone to log in"));
+        log("Scan QR code with WhatsApp on your phone to log in");
 
         await page.waitFor(SEL_CHATLIST, { timeout: 60000 });
-        console.log(colors[NORMAL_COLOUR]("Log in success!"));
+        log("Log in success!");
 
         const people = await page.$$(SEL_PEOPLE);
 
         const printPeople = async () => {
             for (let i = 0; i < people.length; i++) {
-                console.log(colors[NORMAL_COLOUR](`${i + 1} - ${await (await people[i].getProperty('textContent')).jsonValue()}`));
+                log(`${i + 1} - ${await (await people[i].getProperty('textContent')).jsonValue()}`);
             }
         };
 
         await printPeople();
 
-        console.log(colors[NORMAL_COLOUR]("Who would you like to chat to?"));
+        log("Who would you like to chat to?");
         readAnswer(async (answer) => {
             let lastMessage;
             const printMessage = async msg => {
@@ -177,15 +177,15 @@ const printQRcode = async page => {
                 if (theMessage) {
                     const msgText = await (await theMessage.getProperty('textContent')).jsonValue();
                     if (outMsg) {
-                        console.log(`> ${msgText}`, true);
+                        messageOut(`> ${msgText}`);
                     } else {
-                        console.log(colors[OUT_MSG_COLOUR](`> ${lastMessage = msgText}`), true);
+                        messageIn(`> ${lastMessage = msgText}`);
                     }
                 }
             };
             people[parseInt(answer) - 1].click();
             await page.waitFor(SEL_MSG, { timeout: 60000 });
-            const msgs = (await page.$$(SEL_MSG)).slice(-LAST_N_MESSAGES);
+            const msgs = (await page.$$(SEL_MSG)).slice(-20);
             for (const msg of msgs) {
                 await printMessage(msg);
             }
@@ -194,10 +194,10 @@ const printQRcode = async page => {
                 if (msg) {
                     const msgContent = await (await msg.getProperty('textContent')).jsonValue();
                     if (lastMessage && lastMessage != msgContent) {
-                        console.log(colors[OUT_MSG_COLOUR](`> ${msgContent}`), true);
-						if(!clip) {
-							stdout.write("> ");
-						}
+                        messageIn(`> ${msgContent}`);
+                        if (!clip) {
+                            stdout.write("> ");
+                        }
                     }
                     lastMessage = msgContent;
                 }
@@ -213,7 +213,7 @@ const printQRcode = async page => {
             readInput();
         });
     } catch (e) {
-        console.error(JSON.stringify(e));
+        error(JSON.stringify(e));
         console.trace();
         cleanUpAndQuit(browser)();
     }

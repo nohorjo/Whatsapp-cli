@@ -4,7 +4,7 @@
   "description": "Use whatsapp from command line",
   "main": "index.ts",
   "scripts": {
-    "prestart": "tsc -p .",
+    "build": "tsc -p .",
     "start": "node index.js",
     "window": "node index.js s",
     "debug": "node --inspect-brk=9009 index.js",
