@@ -20,35 +20,30 @@ const SEL_BUTTON_SEND = 'button.compose-btn-send';
 let clip = "";
 
 const { stdout, stdin } = process;
-stdout.write(String.fromCharCode(27) + "]0;wa-cli" + String.fromCharCode(7));
+(title => stdout.write(String.fromCharCode(27) + "]0;" + title + String.fromCharCode(7)))('wa-cli');
 stdin.setRawMode(true);
 stdin.resume();
 stdin.setEncoding('utf8');
 
 const { log, messageIn, messageOut, error } = (() => {
-    const print = (text, split?) => {
+    const print = text => {
         text = (text || "").toString();
-        const doLog = t => {
+        text.match(new RegExp(`.{1,${stdout.columns - 2}}`, "g")).forEach(t => {
             readline.clearLine(stdout, 0);
             stdout.write("\n");
             cursor.up(1);
             stdout.write(t);
             readline.cursorTo(stdout, 0);
             cursor.down(1);
-        };
-        if (split) {
-            text.match(new RegExp(`.{1,${stdout.columns - 2}}`, "g")).forEach(doLog);
-        } else {
-            doLog(text);
-        }
+        });
         if (clip) {
             stdout.write(`> ${clip}`);
         }
     };
     return {
-        log: (text) => print(colors.cyan(text), false),
-        messageIn: text => print(colors.yellow(text), true),
-        messageOut: text => print(text, true),
+        log: (text) => print(colors.cyan(text)),
+        messageIn: text => print(colors.yellow(text)),
+        messageOut: text => print(text),
         error: (text, ...other) => console.error(colors.bgRed(text), other.length ? other : "")
     };
 })();
@@ -90,7 +85,7 @@ const printQRcode = async page => {
             setTimeout(tryPrint, 3000);
         }
     };
-    tryPrint();
+    await tryPrint();
 };
 
 (async () => {
@@ -183,7 +178,7 @@ const printQRcode = async page => {
             };
             people[parseInt(answer) - 1].click();
             await page.waitFor(SEL_MSG, { timeout: 60000 });
-            const msgs = (await page.$$(SEL_MSG)).slice(-20);
+            const msgs = (await page.$$(SEL_MSG));
             for (const msg of msgs) {
                 await printMessage(msg);
             }
