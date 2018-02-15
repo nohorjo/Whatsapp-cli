@@ -9,13 +9,13 @@ import * as cursor from 'term-cursor';
 
 
 const SEL_QR = 'img';
-const SEL_CHATLIST = ".chatlist-panel-body";
-const SEL_PEOPLE = '.chat-title > span';
+const SEL_CHATLIST = "#pane-side";
+const SEL_PEOPLE = '#pane-side span[title][dir="auto"]';
 const SEL_MSG = 'div.msg';
-const SEL_IN_MESSAGE = 'div.message-in span.emojitext';
-const SEL_OUT_MESSAGE = 'div.message-out span.emojitext';
+const SEL_IN_MESSAGE = 'div.message-in span.selectable-text.invisible-space.copyable-text';
+const SEL_OUT_MESSAGE = 'div.message-out span.selectable-text.invisible-space.copyable-text';
 const SEL_MSG_INPUT = 'div.pluggable-input-body';
-const SEL_BUTTON_SEND = 'button.compose-btn-send';
+const SEL_BUTTON_SEND = 'span[data-icon="send"]';
 
 let clip = "";
 
