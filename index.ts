@@ -197,7 +197,7 @@ const printQRcode = async page => {
             }, 200);
             const readInput = () => readAnswer(async (line: string) => {
                 if (line.trim()) {
-                    await (await page.$(SEL_MSG_INPUT)).type(line);
+                    await (await page.$(SEL_MSG_INPUT)).type(` ${line}`);
                     await page.waitFor(SEL_BUTTON_SEND, { timeout: 60000 });
                     (await page.$(SEL_BUTTON_SEND)).click();
                 }
