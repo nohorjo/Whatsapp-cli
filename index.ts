@@ -14,7 +14,7 @@ const SEL_PEOPLE = '#pane-side span[title][dir="auto"]';
 const SEL_MSG = 'div.msg';
 const SEL_IN_MESSAGE = 'div.message-in span.selectable-text.invisible-space.copyable-text';
 const SEL_OUT_MESSAGE = 'div.message-out span.selectable-text.invisible-space.copyable-text';
-const SEL_MSG_INPUT = 'div.pluggable-input-body';
+const SEL_MSG_INPUT = 'footer>div>div>div';
 const SEL_BUTTON_SEND = 'span[data-icon="send"]';
 
 let clip = "";
@@ -37,7 +37,7 @@ const { log, messageIn, messageOut, error } = (() => {
             cursor.down(1);
         });
         if (clip) {
-            stdout.write(`> ${clip}`);
+            stdout.write(colors.reset(`> ${clip}`));
         }
     };
     return {
