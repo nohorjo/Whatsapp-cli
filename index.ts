@@ -7,11 +7,12 @@ import * as colors from 'colors';
 import { setInterval, clearTimeout } from 'timers';
 import * as cursor from 'term-cursor';
 
+const headless = process.argv[2] != 's';
 
 const SEL_QR = 'img';
 const SEL_CHATLIST = "#pane-side";
 const SEL_PEOPLE = '#pane-side span[title][dir="auto"]';
-const SEL_MSG = 'div.msg';
+const SEL_MSG = 'div#main>div.pane-chat-tile';
 const SEL_IN_MESSAGE = 'div.message-in span.selectable-text.invisible-space.copyable-text';
 const SEL_OUT_MESSAGE = 'div.message-out span.selectable-text.invisible-space.copyable-text';
 const SEL_MSG_INPUT = 'footer>div>div>div';
@@ -52,13 +53,15 @@ let messageScanner;
 const cleanUpAndQuit = browser => {
     let closing = false;
     return async () => {
-        log("\nShutting down...\n\n");
-        if (!closing) {
-            closing = true;
-            if (messageScanner) clearTimeout(messageScanner);
-            try { await browser.close(); } catch (e) { }
+        if (!headless) {
+            log("\nShutting down...\n\n");
+            if (!closing) {
+                closing = true;
+                if (messageScanner) clearTimeout(messageScanner);
+                try { await browser.close(); } catch (e) { }
+            }
+            process.exit();
         }
-        process.exit();
     }
 };
 
@@ -90,7 +93,7 @@ const printQRcode = async page => {
 
 (async () => {
     const browser = await puppeteer.launch({
-        headless: process.argv[2] != 's',
+        headless: headless,
         args: ['--no-sandbox', '--disable-setuid-sandbox']
     });
     process.on("SIGINT", cleanUpAndQuit(browser));
